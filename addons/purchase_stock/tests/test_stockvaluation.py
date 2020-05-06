@@ -144,17 +144,17 @@ class TestStockValuation(TransactionCase):
         the currency rate, validate the receipt and then check that the value of the received goods
         is set according to the last currency rate.
         """
-        usd_currency = self.env.ref('base.USD')
-        self.env.user.company_id.currency_id = usd_currency.id
-
-        eur_currency = self.env.ref('base.EUR')
+        self.env['res.currency.rate'].search([]).unlink()
+        company_currency = self.env.user.company_id.currency_id
+        other_currency = self.env['res.currency'].search([
+            ('id', '!=', company_currency.id)], limit=1)
 
         self.product1.product_tmpl_id.cost_method = 'average'
 
         # default currency is USD, create a purchase order in EUR
         po1 = self.env['purchase.order'].create({
             'partner_id': self.partner_id.id,
-            'currency_id': eur_currency.id,
+            'currency_id': other_currency.id,
             'order_line': [
                 (0, 0, {
                     'name': self.product1.name,
@@ -184,16 +184,16 @@ class TestStockValuation(TransactionCase):
         self.env['res.currency.rate'].create({
             'name': time.strftime('%Y-%m-%d'),
             'rate': 2.0,
-            'currency_id': eur_currency.id,
+            'currency_id': other_currency.id,
             'company_id': po1.company_id.id,
         })
-        eur_currency._compute_current_rate()
-        price_unit_usd_new_rate = po1.currency_id._convert(
+        other_currency._compute_current_rate()
+        price_unit_company_cur_new_rate = po1.currency_id._convert(
             po1.order_line.price_unit, po1.company_id.currency_id,
             self.env.user.company_id, fields.Date.today(), round=False)
 
         # the new price_unit is lower than th initial because of the rate's change
-        self.assertLess(price_unit_usd_new_rate, price_unit_usd)
+        self.assertLess(price_unit_company_cur_new_rate, price_unit_usd)
 
         # the unit price on the stock move is not directly updated
         self.assertAlmostEqual(move1.price_unit, price_unit_usd, places=2)
@@ -204,9 +204,9 @@ class TestStockValuation(TransactionCase):
         wizard.process()
 
         # the unit price of the stock move has been updated to the latest value
-        self.assertAlmostEqual(move1.price_unit, price_unit_usd_new_rate)
+        self.assertAlmostEqual(move1.price_unit, price_unit_company_cur_new_rate)
 
-        self.assertAlmostEqual(self.product1.stock_value, price_unit_usd_new_rate * 10, delta=0.1)
+        self.assertAlmostEqual(self.product1.stock_value, price_unit_company_cur_new_rate * 10, delta=0.1)
 
     def test_extra_move_fifo_1(self):
         """ Check that the extra move when over processing a receipt is correctly merged back in
