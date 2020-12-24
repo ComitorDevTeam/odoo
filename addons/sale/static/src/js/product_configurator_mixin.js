@@ -291,6 +291,15 @@ var ProductConfiguratorMixin = {
     },
 
     /**
+     * Add additional key value pairs to product creation values.
+     * @param $container
+     * @returns {dict}
+     */
+    getAdditionalCreateValues: function ($container) {
+        return {}
+    },
+
+    /**
      * Will return a deferred:
      *
      * - If the product already exists, immediately resolves it with the product_id
@@ -316,6 +325,7 @@ var ProductConfiguratorMixin = {
                 product_template_attribute_value_ids:
                     JSON.stringify(self.getSelectedVariantValues($container)),
             };
+            Object.assign(params, this.getAdditionalCreateValues($container));
 
             // Note about 12.0 compatibility: this route will not exist if
             // updating the code but not restarting the server. (404)
